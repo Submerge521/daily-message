@@ -171,35 +171,46 @@ def read_db_config(filename):
 
 # 使用示例
 if __name__ == "__main__":
-    config = read_db_config('./config.ini')
+    try:
+        config = read_db_config('./config.ini')
 
-    # 读取数据库的公共配置
-    host = config['database']['host']
-    port = config.getint('database', 'port')
-    user = config['database']['user']
-    password = config['database']['password']
-    webhook_url = config['database'].get('webhook_url', 'your_feishu_webhook_url')  # 添加 webhook_url
-    remote_server = config['database']['remote_server']  # 远程服务器地址
-    server_user = config['database']['server_user']
-    # 初始化结果字典
+        # 读取数据库连接配置（含异常捕获）
+        db_common = config['database']
+        host = db_common['host']
+        port = db_common.getint('port')  # 自动转换类型
+        user = db_common['user']
+        password = db_common['password']
+        webhook_url = db_common.get('webhook_url', '')
+        remote_server = db_common['remote_server']
+        server_user = db_common['server_user']
+
+        # 动态获取所有数据库名称（兼容两种配置格式）
+        if 'databases' in config:
+            # 方案1：直接读取 [databases] 下的所有值（适合键名无意义的情况）
+            db_names = [v.strip() for _, v in config.items('databases')]
+
+            # 方案2：兼容逗号分隔的列表（适合 names = db1,db2 格式）
+            # db_names = [name.strip() for name in config.get('databases',  'names').split(',')]
+        else:
+            raise KeyError("缺少 [databases] 配置节")
+
+    except (KeyError, configparser.NoSectionError) as e:
+        print(f"配置错误: {e}")
+        exit(1)
+    except ValueError as e:
+        print(f"配置项格式错误（如 port 非整数）: {e}")
+        exit(1)
+
     results = {}
 
-    # 读取第一个数据库的名称
-    db1_name = config['databases']['db1']
+    # 统一处理所有数据库
+    for db_name in db_names:
+        if backup_database(db_name, user, password, host, port, webhook_url, results):
+            check_mysql_database(db_name, user, password, host, port, webhook_url, results)
 
-    # 备份第一个数据库
-    if backup_database(db1_name, user, password, host, port, webhook_url, results):
-        check_mysql_database(db1_name, user, password, host, port, webhook_url, results)
-
-    # 读取第二个数据库的名称
-    db2_name = config['databases']['db2']
-
-    # 备份第二个数据库
-    if backup_database(db2_name, user, password, host, port, webhook_url, results):
-        check_mysql_database(db2_name, user, password, host, port, webhook_url, results)
-
-        # 将结果字典转换为字符串
-    results_message = json.dumps(results, ensure_ascii=False, indent=4)
-
-    # 推送最终结果到飞书
-    send_feishu_notification(f"最终结果:\n{results_message}", webhook_url)
+    # 推送结果（含空结果检查）
+    if results:
+        results_message = json.dumps(results, ensure_ascii=False, indent=4)
+        send_feishu_notification(f"🔧 数据库运维报告\n{results_message}", webhook_url)
+    else:
+        send_feishu_notification("⚠️ 未执行任何数据库操作，请检查配置", webhook_url)
