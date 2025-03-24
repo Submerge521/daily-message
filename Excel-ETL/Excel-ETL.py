@@ -20,7 +20,7 @@ class FixedPrefixComparator:
     def __init__(self, excel_path: str, db_config: Dict[str, str]):
         self.excel_path  = excel_path
         self.db_config  = db_config
-        self.fixed_prefix  = "tb_czyth_gzc_"  # 硬编码指定前缀
+        self.fixed_prefix  = "tb_kjc_zw_"  # 硬编码指定前缀
         self.matched_tables  = []
 
         # 样式配置
@@ -130,8 +130,8 @@ if __name__ == "__main__":
         "database": "HG_SourceDB",
         "port": 3306
     }
-    EXCEL_PATH = "source_excel/1111.xlsx"
-
+    # EXCEL_PATH = "source_excel/16.xlsx"
+    EXCEL_PATH = "compare/2_preprocessed_20250314_1211.xlsx"
     # 执行比对
     comparator = FixedPrefixComparator(EXCEL_PATH, DB_CONFIG)
     report = comparator.execute()

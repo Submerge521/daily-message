@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/DataDict/Oracle/DataDict.py" dialect="Oracle" />
+    <file url="file://$PROJECT_DIR$/Excel-ETL/Excel-ETL-XG.py" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/Excel-ETL/Excel-ETL-YX.py" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/Excel-ETL/Excel-ETL.py" dialect="MySQL" />
-    <file url="file://$PROJECT_DIR$/Excel-ETL/compare.py" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/Excel-ETL/compare/compare.py" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/Excel-ETL/compare/compare_xg.py" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/exportExcel/exportExcel.py" dialect="Oracle" />
   </component>
 </project>

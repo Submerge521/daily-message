@@ -15,7 +15,7 @@ class TableDiffAnalyzer:
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor
         )
-        self.prefix = "tb_czyth_gzc_"
+        self.prefix = "tb_kjc_zw_"
         self.report_time = datetime(2025, 3, 13, 13, 57)  # 指定报告时间
 
     def _extract_comment_en(self, comment: str) -> str:
