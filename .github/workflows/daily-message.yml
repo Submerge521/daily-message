@@ -1,15 +1,13 @@
-name: Daily Morning Message
+name: Daily WeChat Message
 
 on:
   schedule:
-    # 每天北京时间早上8点运行 (UTC时间0点)
-    - cron: '0 0 * * *'
-  workflow_dispatch:  # 允许手动触发
+    - cron: '0 0 * * *'  # 每天UTC时间0点（北京时间8点）
+  workflow_dispatch:
 
 jobs:
-  send-morning-message:
+  send-wechat-message:
     runs-on: ubuntu-latest
-    name: Send daily message to girlfriend
     
     steps:
     - name: Checkout code
@@ -21,20 +19,23 @@ jobs:
         python-version: '3.13'
         
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: pip install requests
       
-    - name: Run daily message script
+    - name: Run WeChat message script
       env:
-        SEND_KEY: ${{ secrets.SEND_KEY }}
+        WECHAT_APPID: ${{ secrets.WECHAT_APPID }}
+        WECHAT_APPSECRET: ${{ secrets.WECHAT_APPSECRET }}
+        WECHAT_TEMPLATE_ID: ${{ secrets.WECHAT_TEMPLATE_ID }}
+        WECHAT_USER_ID: ${{ secrets.WECHAT_USER_ID }}
         CITY: ${{ secrets.CITY }}
         BIRTHDAY: ${{ secrets.BIRTHDAY }}
         GF_NAME: ${{ secrets.GF_NAME }}
-      run: python daily_message.py
+      run: python wechat_message.py
       
-    - name: Notify success
+    - name: Success notification
       if: success()
-      run: echo "✅ Daily message sent successfully!"
+      run: echo "✅ 微信消息发送成功！"
       
-    - name: Notify failure
+    - name: Failure notification
       if: failure()
-      run: echo "❌ Failed to send daily message"
+      run: echo "❌ 微信消息发送失败"
