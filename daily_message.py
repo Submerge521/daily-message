@@ -1,43 +1,65 @@
 import requests
 import os
 import json
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import random
+import time
 
 # 从环境变量获取配置
 APPID = os.getenv('WECHAT_APPID')
 APPSECRET = os.getenv('WECHAT_APPSECRET')
 TEMPLATE_ID = os.getenv('WECHAT_TEMPLATE_ID')
 USER_ID = os.getenv('WECHAT_USER_ID')
-CITY = os.getenv('CITY', '苏州')
-BIRTHDAY = os.getenv('BIRTHDAY', '02-23')
-GF_NAME = os.getenv('GF_NAME', '宝贝')
+CITY = os.getenv('CITY', '广州')
+BIRTHDAY = os.getenv('BIRTHDAY', '02-16')  # 格式: MM-DD
+RELATIONSHIP_DATE = os.getenv('RELATIONSHIP_DATE', '2025-08-18')  # 格式: YYYY-MM-DD
+GF_NAME = os.getenv('GF_NAME', '小睿')
+CONSTELLATION = os.getenv('CONSTELLATION', '水瓶座')  # 星座名称
 
 class WeChatMessage:
     def __init__(self):
         self.access_token = None
         self.token_expire_time = 0
+        # 初始化恋爱天数计算
+        self.init_relationship_date()
         
+    def init_relationship_date(self):
+        """初始化恋爱日期"""
+        try:
+            self.relationship_start = datetime.strptime(RELATIONSHIP_DATE, '%Y-%m-%d').date()
+        except Exception as e:
+            print(f"恋爱日期格式错误，使用默认值: {e}")
+            self.relationship_start = date(2023, 1, 1)
+    
     def get_access_token(self):
-        """获取微信access_token"""
+        """获取微信access_token，带重试机制"""
         if self.access_token and datetime.now().timestamp() < self.token_expire_time:
             return self.access_token
             
         url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={APPID}&secret={APPSECRET}"
-        try:
-            response = requests.get(url, timeout=10)
-            data = response.json()
-            if 'access_token' in data:
-                self.access_token = data['access_token']
-                self.token_expire_time = datetime.now().timestamp() + data['expires_in'] - 300
-                print("✅ 获取access_token成功")
-                return self.access_token
-            else:
-                print(f"❌ 获取access_token失败: {data}")
-                return None
-        except Exception as e:
-            print(f"❌ 获取access_token异常: {e}")
-            return None
+        max_retries = 3
+        retry_delay = 2  # 秒
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, timeout=10)
+                data = response.json()
+                
+                if 'access_token' in data:
+                    self.access_token = data['access_token']
+                    # 提前300秒过期，避免刚好在发送时过期
+                    self.token_expire_time = datetime.now().timestamp() + data['expires_in'] - 300
+                    print("✅ 获取access_token成功")
+                    return self.access_token
+                else:
+                    print(f"❌ 获取access_token失败: {data}")
+                    
+            except Exception as e:
+                print(f"❌ 获取access_token异常 (尝试 {attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+        
+        return None
     
     def get_weather(self):
         """获取天气信息 - 确保一定有返回"""
@@ -84,7 +106,7 @@ class WeChatMessage:
             if data.get('success'):
                 info = data['info']
                 weather_type = info['type']
-                temp_range = f"{info['low']}~{info['high']}°C"
+                temp_range = f"{info['low']}°C~{info['high']}°C"
                 tip = self._get_weather_tip(weather_type)
                 return f"🌤️ {weather_type} {temp_range} | {tip}"
         except:
@@ -109,15 +131,29 @@ class WeChatMessage:
         # 根据月份生成合理的天气
         now = datetime.now()
         month = now.month
+        day_temp = random.randint(15, 35)
+        night_temp = random.randint(5, day_temp - 5)
         
         if month in [12, 1, 2]:  # 冬季
-            weathers = ["❄️ 晴 -2°C~8°C | 冬天来了，记得穿暖暖", "🌨️ 雪 -5°C~2°C | 下雪啦，小心路滑"]
+            weathers = [
+                f"❄️ 晴 {night_temp}°C~{day_temp}°C | 冬天来了，记得穿暖暖",
+                f"🌨️ 雪 {night_temp}°C~{day_temp}°C | 下雪啦，小心路滑"
+            ]
         elif month in [3, 4, 5]:  # 春季
-            weathers = ["🌸 晴 15°C~25°C | 春暖花开，适合散步", "🌧️ 小雨 12°C~18°C | 春雨绵绵，带把伞吧"]
+            weathers = [
+                f"🌸 晴 {night_temp}°C~{day_temp}°C | 春暖花开，适合散步",
+                f"🌧️ 小雨 {night_temp}°C~{day_temp}°C | 春雨绵绵，带把伞吧"
+            ]
         elif month in [6, 7, 8]:  # 夏季
-            weathers = ["🌞 晴 28°C~36°C | 热浪来袭，注意防暑", "⛈️ 雷阵雨 26°C~32°C | 可能有雨，带伞出门"]
+            weathers = [
+                f"🌞 晴 {night_temp}°C~{day_temp}°C | 热浪来袭，注意防暑",
+                f"⛈️ 雷阵雨 {night_temp}°C~{day_temp}°C | 可能有雨，带伞出门"
+            ]
         else:  # 秋季
-            weathers = ["🍂 晴 18°C~26°C | 秋高气爽，很舒服呢", "🌫️ 多云 16°C~22°C | 云淡风轻，适合郊游"]
+            weathers = [
+                f"🍂 晴 {night_temp}°C~{day_temp}°C | 秋高气爽，很舒服呢",
+                f"🌫️ 多云 {night_temp}°C~{day_temp}°C | 云淡风轻，适合郊游"
+            ]
         
         return random.choice(weathers)
     
@@ -136,14 +172,23 @@ class WeChatMessage:
     def calculate_days_until_birthday(self):
         """计算距离生日的天数"""
         try:
-            today = datetime.now()
+            today = date.today()
             year = today.year
             month, day = map(int, BIRTHDAY.split('-'))
             
-            birthday_this_year = datetime(year, month, day)
+            # 处理2月29日的特殊情况
+            if month == 2 and day == 29 and not (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
+                birthday_this_year = date(year, 3, 1)
+            else:
+                birthday_this_year = date(year, month, day)
             
             if today > birthday_this_year:
-                birthday_next_year = datetime(year + 1, month, day)
+                next_year = year + 1
+                # 再次处理明年2月29日的情况
+                if month == 2 and day == 29 and not (next_year % 4 == 0 and (next_year % 100 != 0 or next_year % 400 == 0)):
+                    birthday_next_year = date(next_year, 3, 1)
+                else:
+                    birthday_next_year = date(next_year, month, day)
                 days_left = (birthday_next_year - today).days
             else:
                 days_left = (birthday_this_year - today).days
@@ -166,15 +211,37 @@ class WeChatMessage:
             print(f"计算生日失败: {e}")
             return "🎁 生日总是最特别的日子"
     
+    def calculate_love_days(self):
+        """计算恋爱天数"""
+        try:
+            today = date.today()
+            days = (today - self.relationship_start).days
+            
+            if days <= 0:
+                return "💘 今天是我们在一起的第一天！"
+            elif days % 365 == 0:
+                years = days // 365
+                return f"💑 我们已经在一起{years}年啦！{days}天的幸福时光~"
+            elif days % 100 == 0:
+                return f"💞 第{days}天啦！百天纪念快乐~"
+            elif days % 30 == 0:
+                return f"💖 已经{days}天了，每月都有新甜蜜~"
+            else:
+                return f"❤️ 我们已经在一起{days}天啦~"
+                
+        except Exception as e:
+            print(f"计算恋爱天数失败: {e}")
+            return "💓 每一天都值得珍惜"
+    
     def get_horoscope(self):
         """获取星座运势 - 确保一定有返回"""
         print("正在获取星座运势...")
         
         # 尝试多个星座API
         horoscope_apis = [
-            self._try_azhubaby_horoscope,
-            self._try_vvhan_horoscope,
-            self._try_btstu_horoscope
+            lambda: self._try_vvhan_horoscope(CONSTELLATION),
+            lambda: self._try_81chart_horoscope(CONSTELLATION),
+            lambda: self._try_astrology_horoscope(CONSTELLATION)
         ]
         
         for api_func in horoscope_apis:
@@ -191,50 +258,63 @@ class WeChatMessage:
         print("⚠️ 所有星座API失败，使用本地星座数据")
         return self._get_local_horoscope()
     
-    def _try_azhubaby_horoscope(self):
-        """尝试azhubaby星座API"""
-        try:
-            url = "https://api.azhubaby.com/constellation/pisces/"
-            response = requests.get(url, timeout=5)
-            data = response.json()
-            if data.get('success'):
-                content = data.get('content', '')
-                if content:
-                    return f"✨ {content[:45]}..."
-        except:
-            return None
-    
-    def _try_vvhan_horoscope(self):
+    def _try_vvhan_horoscope(self, constellation):
         """尝试vvhan星座API"""
+        constellation_map = {
+            "白羊座": "aries", "金牛座": "taurus", "双子座": "gemini",
+            "巨蟹座": "cancer", "狮子座": "leo", "处女座": "virgo",
+            "天秤座": "libra", "天蝎座": "scorpio", "射手座": "sagittarius",
+            "摩羯座": "capricorn", "水瓶座": "aquarius", "双鱼座": "pisces"
+        }
+        
+        en_constellation = constellation_map.get(constellation, "pisces")
+        
         try:
-            url = "https://api.vvhan.com/api/horoscope?type=pisces&time=today"
+            url = f"https://api.vvhan.com/api/horoscope?type={en_constellation}&time=today"
             response = requests.get(url, timeout=5)
             data = response.json()
             if data.get('success'):
                 content = data['data'].get('content', '')
                 if content:
-                    return f"✨ {content[:45]}..."
+                    return f"✨ {constellation}今天运势很棒！{content[:45]}..."
         except:
             return None
     
-    def _try_btstu_horoscope(self):
-        """尝试btstu星座API"""
+    def _try_81chart_horoscope(self, constellation):
+        """尝试81chart星座API"""
         try:
-            url = "https://api.btstu.cn/yan/api.php?charset=utf-8"
+            url = f"https://api.81chart.com/horoscope/daily?constellation={constellation}&lang=zh-CN"
             response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                return f"✨ {response.text.strip()[:40]}..."
+            data = response.json()
+            if data.get('code') == 0:
+                fortune = data['data']['fortune']
+                return f"✨ {constellation}今日{fortune}，感情方面有小惊喜..."
+        except:
+            return None
+    
+    def _try_astrology_horoscope(self, constellation):
+        """尝试另一个星座API"""
+        try:
+            url = f"https://api.astrologyapi.com/v1/daily_horoscope/{constellation}/today"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": "Basic YXBpLWFzdGlyb2x5YXBpOjEyMzQ1Ng=="  # 示例授权，可能需要替换
+            }
+            response = requests.get(url, headers=headers, timeout=5)
+            data = response.json()
+            if 'horoscope_data' in data:
+                return f"✨ {constellation}今天{data['horoscope_data'][:40]}..."
         except:
             return None
     
     def _get_local_horoscope(self):
         """获取本地星座运势"""
         horoscopes = [
-            "🌟 双鱼座今天运势很棒！感情方面会有小惊喜，保持开放的心态~",
-            "💫 今天适合创意工作，你的直觉很准，相信自己的感觉吧！",
-            "🌈 整体运势不错，可能会遇到意想不到的好事，保持微笑~",
-            "🎯 是制定计划的好时机，你的梦想正在一步步实现呢",
-            "❤️ 爱情运势佳，适合表达心意，对方会被你的真诚打动"
+            f"✨ {CONSTELLATION}今天运势很棒！感情方面会有小惊喜，保持开放的心态~",
+            f"💫 {CONSTELLATION}今天适合创意工作，你的直觉很准，相信自己的感觉吧！",
+            f"🌈 {CONSTELLATION}整体运势不错，可能会遇到意想不到的好事，保持微笑~",
+            f"🎯 {CONSTELLATION}是制定计划的好时机，你的梦想正在一步步实现呢",
+            f"❤️ {CONSTELLATION}爱情运势佳，适合表达心意，对方会被你的真诚打动"
         ]
         return random.choice(horoscopes)
     
@@ -291,7 +371,7 @@ class WeChatMessage:
             "适当休息，别让自己太累了",
             "出门前检查物品，别忘带东西哦",
             "天气变化，注意增减衣物",
-            "记得给家人打个电话，他们很想你",
+            "工作再忙也要记得放松一下呀",
             "今天也要运动一下，保持健康"
         ]
         return f"💡 {random.choice(tips)}"
@@ -355,101 +435,131 @@ class WeChatMessage:
     def _get_local_sweet_words(self):
         """获取本地情话"""
         sweet_words = [
-            "🐰 今天也是想扑进你怀里的一天~",
-            "🌟 你是我生命中最亮的星星",
-            "💕 爱你是我做过最正确的决定",
-            "🍬 和你在一起的每一天都甜甜蜜蜜",
-            "🌻 你是我的小太阳，温暖我的心",
-            "🎯 我的目标就是让你每天都开心",
-            "🌈 遇见你是我最大的幸运",
-            "🎁 你就是我最好的礼物"
+            f"🐰 今天也是想扑进{GF_NAME}怀里的一天~",
+            f"🌟 {GF_NAME}是我生命中最亮的星星",
+            f"💕 爱{GF_NAME}是我做过最正确的决定",
+            f"🍬 和{GF_NAME}在一起的每一天都甜甜蜜蜜",
+            f"🌻 {GF_NAME}是我的小太阳，温暖我的心",
+            f"🎯 我的目标就是让{GF_NAME}每天都开心",
+            f"🌈 遇见你是我最大的幸运，{GF_NAME}",
+            f"🎁 {GF_NAME}就是我最好的礼物"
         ]
-        return f"💌 {random.choice(sweet_words)}"
+        return random.choice(sweet_words)
     
-    def get_description(self):
-        """获取顶部描述"""
-        descriptions = [
-            f"🌞 早安{GF_NAME}！新的一天开始啦~",
-            f"🌸 亲爱的{GF_NAME}，今天也要开心哦",
-            f"🐻 {GF_NAME}宝贝，醒来收到我的爱了吗",
-            f"🌟 早上好我的小仙女{GF_NAME}",
-            f"💖 {GF_NAME}，今天的推送准时送达啦"
-        ]
-        return random.choice(descriptions)
+    def get_greeting(self):
+        """获取顶部问候语"""
+        hour = datetime.now().hour
+        
+        if 5 <= hour < 10:
+            greetings = [
+                f"🌞 早安{GF_NAME}！新的一天开始啦~",
+                f"☀️ 早上好{GF_NAME}，今天也是爱你的一天",
+                f"🌅 {GF_NAME}早安，愿你今天有个好心情"
+            ]
+        elif 10 <= hour < 14:
+            greetings = [
+                f"🌞 午安{GF_NAME}！记得好好吃饭哦~",
+                f"🍱 {GF_NAME}中午好，今天也要元气满满",
+                f"☀️ 中午好{GF_NAME}，休息一下吧"
+            ]
+        elif 14 <= hour < 18:
+            greetings = [
+                f"🌤️ 下午好{GF_NAME}！工作再忙也要注意休息~",
+                f"☕ {GF_NAME}下午好，喝杯茶放松一下吧",
+                f"🌞 午后好{GF_NAME}，愿你有个轻松的下午"
+            ]
+        else:
+            greetings = [
+                f"🌙 晚安{GF_NAME}！今天辛苦了~",
+                f"✨ 晚上好{GF_NAME}，好好享受夜晚时光吧",
+                f"🌌 {GF_NAME}晚安，做个甜甜的梦"
+            ]
+        
+        return random.choice(greetings)
     
     def get_remark(self):
         """获取底部备注"""
         remarks = [
-            "💖 永远爱你的我 | 🌈 每一天都因你而美好",
-            "🤗 想你的每一刻 | 🎯 今天也要加油哦",
-            "🐾 你的专属温暖 | 🌟 期待与你的每一天"
+            f"💖 永远爱你的我 | 🌈 每一天都因{GF_NAME}而美好",
+            f"🤗 想你的每一刻 | 🎯 今天也要加油哦",
+            f"🐾 你的专属温暖 | 🌟 期待与你的每一天"
         ]
         return random.choice(remarks)
     
     def send_message(self):
-        """发送微信模板消息"""
+        """发送微信模板消息，带重试机制"""
         print("开始准备消息内容...")
         
+        # 检查必要配置
         if not all([APPID, APPSECRET, TEMPLATE_ID, USER_ID]):
             print("❌ 微信配置信息不完整")
             return False
         
+        # 获取access_token
         access_token = self.get_access_token()
         if not access_token:
             return False
         
         # 准备消息数据
-        description = self.get_description()
+        greeting = self.get_greeting()
         weather = self.get_weather()
         birthday_countdown = self.calculate_days_until_birthday()
+        love_days = self.calculate_love_days()
         horoscope = self.get_horoscope()
         sweet_words = self.get_sweet_words()
         daily_tip = self.get_daily_tip()
         remark = self.get_remark()
         
+        # 获取当前日期和星期
         weekdays = ["一", "二", "三", "四", "五", "六", "日"]
-        current_weekday = weekdays[datetime.now().weekday()]
+        current_date = datetime.now().strftime('%Y年%m月%d日')
+        current_weekday = f"星期{weekdays[datetime.now().weekday()]}"
         
+        # 构建模板数据，确保与微信模板中的字段对应
         template_data = {
             "touser": USER_ID,
             "template_id": TEMPLATE_ID,
-            "url": "https://github.com",
+            "url": "https://github.com",  # 点击消息跳转的URL
             "data": {
-                "description": {
-                    "value": description,
-                    "color": "#FF6B9D"
+                "greeting": {
+                    "value": greeting,
+                    "color": "#FF6B9D"  # 粉色
                 },
                 "date": {
-                    "value": datetime.now().strftime('%Y年%m月%d日'),
-                    "color": "#5B8FF9"
+                    "value": current_date,
+                    "color": "#5B8FF9"  # 蓝色
                 },
-                "week": {
-                    "value": f"星期{current_weekday}",
-                    "color": "#5B8FF9"
+                "weekday": {
+                    "value": current_weekday,
+                    "color": "#5B8FF9"  # 蓝色
                 },
                 "birthday": {
-                    "value": birthday_countdown,
-                    "color": "#FF9D4D"
+                    "value": f"破壳日：{birthday_countdown}",
+                    "color": "#FF9D4D"  # 橙色
+                },
+                "love_days": {
+                    "value": love_days,
+                    "color": "#FF6B6B"  # 红色
                 },
                 "weather": {
-                    "value": weather,
-                    "color": "#30BF78"
+                    "value": f"看看天气：{weather}",
+                    "color": "#30BF78"  # 绿色
                 },
                 "horoscope": {
-                    "value": horoscope,
-                    "color": "#9A5FE8"
+                    "value": f"星座：{horoscope}",
+                    "color": "#9A5FE8"  # 紫色
                 },
-                "sweetWords": {
-                    "value": sweet_words,
-                    "color": "#FF6B6B"
+                "sweet_words": {
+                    "value": f"想说：{sweet_words}",
+                    "color": "#FF6B6B"  # 红色
                 },
-                "dailyTip": {
-                    "value": daily_tip,
-                    "color": "#FFC53D"
+                "daily_tip": {
+                    "value": f"今天的tip：{daily_tip}",
+                    "color": "#FFC53D"  # 黄色
                 },
                 "remark": {
                     "value": remark,
-                    "color": "#FF85C0"
+                    "color": "#FF85C0"  # 浅粉色
                 }
             }
         }
@@ -457,27 +567,44 @@ class WeChatMessage:
         print("消息内容准备完成，开始发送...")
         
         url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={access_token}"
+        max_retries = 2
+        retry_delay = 3  # 秒
         
-        try:
-            response = requests.post(url, json=template_data, timeout=10)
-            result = response.json()
-            
-            print(f"微信API响应: {result}")
-            
-            if result.get('errcode') == 0:
-                print("✅ 微信消息发送成功！")
-                return True
-            else:
-                print(f"❌ 微信消息发送失败: {result.get('errmsg')}")
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(url, json=template_data, timeout=10)
+                result = response.json()
+                
+                print(f"微信API响应: {result}")
+                
+                if result.get('errcode') == 0:
+                    print("✅ 微信消息发送成功！")
+                    return True
+                else:
+                    print(f"❌ 微信消息发送失败: {result.get('errmsg')}")
+                    # 如果是token错误，尝试重新获取token
+                    if result.get('errcode') in [40001, 42001]:
+                        print("🔄 token可能已过期，尝试重新获取...")
+                        self.access_token = None
+                        access_token = self.get_access_token()
+                        if access_token:
+                            url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={access_token}"
+                            if attempt < max_retries - 1:
+                                time.sleep(retry_delay)
+                                continue
+                
                 return False
                 
-        except Exception as e:
-            print(f"❌ 发送微信消息异常: {e}")
-            return False
+            except Exception as e:
+                print(f"❌ 发送微信消息异常 (尝试 {attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+        
+        return False
 
 def main():
     print("=" * 60)
-    print("开始执行微信每日推送")
+    print(f"开始执行微信每日推送 [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]")
     print("=" * 60)
     
     wechat = WeChatMessage()
