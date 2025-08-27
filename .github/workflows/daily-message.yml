@@ -1,41 +1,64 @@
-name: Daily WeChat Message
+# 文件名: .github/workflows/push_message.yml
 
+name: 💌 WeChat Daily Push # Workflow 的名称
+
+# 触发条件
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 每天UTC时间0点（北京时间8点）
+  # 手动触发
   workflow_dispatch:
+  # 定时触发 (使用 POSIX cron 语法)
+  # 默认设置为 UTC 时间每天 00:00 触发 (对应北京时间 08:00)
+  # 你可以根据需要调整时间
+  schedule:
+    - cron: '0 0 * * *' # 分钟(0-59) 小时(0-23) 日(1-31) 月(1-12) 星期(0-6, 0=周日)
+                        # '0 0 * * *' 表示每天 UTC 00:00 (即北京时间 08:00)
 
+
+# 任务定义
 jobs:
-  send-wechat-message:
+  push-message:
+    # 运行环境
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.13'
-        
-    - name: Install dependencies
-      run: pip install requests
-      
-    - name: Run WeChat message script
-      env:
-        WECHAT_APPID: ${{ secrets.WECHAT_APPID }}
-        WECHAT_APPSECRET: ${{ secrets.WECHAT_APPSECRET }}
-        WECHAT_TEMPLATE_ID: ${{ secrets.WECHAT_TEMPLATE_ID }}
-        WECHAT_USER_ID: ${{ secrets.WECHAT_USER_ID }}
-        CITY: ${{ secrets.CITY }}
-        BIRTHDAY: ${{ secrets.BIRTHDAY }}
-        GF_NAME: ${{ secrets.GF_NAME }}
-      run: python wechat_message.py
-      
-    - name: Success notification
-      if: success()
-      run: echo "✅ 微信消息发送成功！"
-      
-    - name: Failure notification
-      if: failure()
-      run: echo "❌ 微信消息发送失败"
+      # 1. 检出代码
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4 # 使用官方的 checkout action
+
+      # 2. 设置 Python 环境
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5 # 使用官方的 setup-python action
+        with:
+          python-version: '3.13' # 指定 Python 版本，根据你的代码需求调整
+
+      # 3. 安装依赖
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. 运行推送脚本
+      # 将 GitHub Secrets 作为环境变量传递给 Python 脚本
+      - name: 🚀 Run WeChat Push Script
+        env:
+          # 必须的 Secrets
+          WECHAT_APPID: ${{ secrets.WECHAT_APPID }}
+          WECHAT_APPSECRET: ${{ secrets.WECHAT_APPSECRET }}
+          WECHAT_TEMPLATE_ID: ${{ secrets.WECHAT_TEMPLATE_ID }}
+          WECHAT_USER_ID: ${{ secrets.WECHAT_USER_ID }}
+          AMAP_KEY: ${{ secrets.AMAP_KEY }}
+          
+          # 可选的 Secrets (也可以直接在下面 run 命令中用 -e 设置)
+          CITY: ${{ secrets.CITY }}
+          BIRTHDAY: ${{ secrets.BIRTHDAY }}
+          RELATIONSHIP_DATE: ${{ secrets.RELATIONSHIP_DATE }}
+          GF_NAME: ${{ secrets.GF_NAME }}
+          CONSTELLATION: ${{ secrets.CONSTELLATION }}
+
+        run: |
+          # 如果你选择将非敏感配置也放在 Secrets 里，就不用下面这些 -e 了
+          # 使用 python-dotenv 或直接在命令行设置环境变量
+          # CITY=广州 BIRTHDAY=02-16 RELATIONSHIP_DATE=2023-05-20 GF_NAME=小睿 CONSTELLATION=水瓶座 python push_message.py
+          
+          # 推荐方式：直接运行，所有配置都从 secrets 读取
+          python daily_message.py
