@@ -251,17 +251,15 @@ class WeChatMessage:
             # 使用天行数据提供的星座运势 API
             url = "https://apis.tianapi.com/star/index"
             params = {
-                'key': TIANAPI_KEY,  # API Key
-                'astro': CONSTELLATION  # 星座名称
+                'key': TIANAPI_KEY,
+                'astro': CONSTELLATION
             }
             response = requests.get(url, params=params, timeout=10)
             data = response.json()
-            print(f"星座API返回原始数据: {data}")  # 调试信息
+            print(f"星座API返回原始数据: {data}")
 
-            # 检查API返回是否成功
             if data.get('code') == 200 and 'result' in data and 'list' in data['result']:
                 horoscope_list = data['result']['list']
-                print(f"星座运势列表: {horoscope_list}")  # 调试信息
 
                 # 查找"今日概述"的内容
                 today_summary = ""
@@ -276,15 +274,13 @@ class WeChatMessage:
                     for item in horoscope_list:
                         item_type = item.get('type', '')
                         content = item.get('content', '')
-                        if content and item_type != '综合指数':  # 跳过综合指数
-                            summary_parts.append(f"{item_type}: {content}")
-
+                        if content and item_type != '综合指数':
+                            summary_parts.append(content)
                     today_summary = "  ".join(summary_parts)
 
                 if today_summary:
-                    result = f"✨ {CONSTELLATION}今日运势：{today_summary}"
-                    print(f"✅ 星座运势获取成功: {result}")
-                    return result
+                    print(f"✅ 星座运势获取成功: {today_summary}")
+                    return today_summary  # ❗ 直接返回内容，不加前缀
                 else:
                     print("⚠️ API返回数据中未包含有效的内容字段")
 
@@ -295,21 +291,12 @@ class WeChatMessage:
         except Exception as e:
             print(f"❌ 获取星座运势异常: {e}")
 
-        # 如果API调用失败或出错，回退到本地模拟
+        # 回退到本地模拟
         print("⚠️ 星座API调用失败，使用本地模拟数据...")
         return self._get_local_horoscope_summary()
 
     def _get_local_horoscope_summary(self):
         """获取本地星座运势的 summary 部分 - 作为备用方案"""
-        # 定义一些通用的运势前缀，让结果听起来更专业
-        prefixes = [
-            f"✨ {CONSTELLATION}今日运势：",
-            f"🔮 {CONSTELLATION}专属占卜：",
-            f"⭐ {CONSTELLATION}今日指引：",
-            f"💫 {CONSTELLATION}能量播报：",
-        ]
-        prefix = random.choice(prefixes)
-
         # 定义按运势类型分类的句子
         love_fortunes = [
             "单身者有机会在社交场合遇到心仪的对象，保持开放的心态。",
@@ -352,9 +339,8 @@ class WeChatMessage:
             "今天适合反思和规划，为未来做好准备。"
         ]
 
-        # 根据当前日期生成一个"伪随机"种子，使得同一天的运势相对固定
+        # 根据当前日期生成一个"伪随机"种子
         today_seed = date.today().toordinal()
-        # 简单根据星座名称生成一个基础ID
         constellation_id = sum(ord(char) for char in CONSTELLATION)
         random.seed(today_seed + constellation_id)
 
@@ -365,10 +351,10 @@ class WeChatMessage:
         selected_health = random.choice(health_fortunes)
         selected_general = random.choice(general_fortunes)
 
-        # 组合运势信息 (模拟 summary 的感觉)
+        # 组合运势信息
         horoscope_summary = f"{selected_general} {selected_love} {selected_work} {selected_money} {selected_health}"
 
-        # 添加一些可爱的结尾
+        # 添加结尾
         endings = [
             "愿你今天被幸福填满！",
             "带着微笑开启新的一天吧！",
@@ -378,9 +364,8 @@ class WeChatMessage:
         ]
         horoscope_summary += " " + random.choice(endings)
 
-        result = prefix + horoscope_summary
-        # 重置随机种子，避免影响其他部分
-        random.seed()
+        result = horoscope_summary  # ❗ 不加前缀
+        random.seed()  # 重置种子
         return result
 
     def get_daily_quote(self):
