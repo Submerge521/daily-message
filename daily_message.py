@@ -202,7 +202,7 @@ class WeChatMessage:
 
             # 生成有趣的倒计时描述
             if days_left == 0:
-                return "🎉 今天是生日！生日快乐我的宝贝！"
+                return "🎉 破壳啦~ 生日快乐呀小睿！"
             elif days_left == 1:
                 return "🌟 明天生日！已经准备好惊喜啦~"
             elif days_left < 7:
@@ -212,7 +212,7 @@ class WeChatMessage:
             elif days_left < 100:
                 return f"📅 还有{days_left}天，期待与你庆祝"
             else:
-                return f"🗓️ 还有{days_left}天，但爱你的心从不停止"
+                return f"🗓️ 还有{days_left}天，但对你的心动从不停止"
 
         except Exception as e:
             print(f"计算生日失败: {e}")
@@ -225,19 +225,19 @@ class WeChatMessage:
             days = (today - self.relationship_start).days
 
             if days <= 0:
-                return "💘 今天是我们在一起的第一天！"
+                return "💘 今天是我们相识的第一天！"
             elif days % 365 == 0:
                 years = days // 365
-                return f"💑 我们已经在一起{years}年啦！{days}天的幸福时光~"
+                return f"💑 我们已经相识{years}年啦！{days}天的幸福时光~"
             elif days % 100 == 0:
                 return f"💞 第{days}天啦！百天纪念快乐~"
             elif days % 30 == 0:
-                return f"💖 已经{days}天了，每月都有新甜蜜~"
+                return f"💖 已经{days}天了，每月都有新事物~"
             else:
-                return f"❤️ 我们已经在一起{days}天啦~"
+                return f"❤️ 我们已经相识{days}天啦~"
 
         except Exception as e:
-            print(f"计算恋爱天数失败: {e}")
+            print(f"计算天数失败: {e}")
             return "💓 每一天都值得珍惜"
 
     def get_horoscope(self):
